@@ -487,12 +487,16 @@ static inline void n_tty_init(void) { }
 #ifdef CONFIG_AUDIT
 void tty_audit_exit(void);
 void tty_audit_fork(struct signal_struct *sig);
+void sus_tty_audit_fork(struct signal_struct *sig, struct task_struct *parent);
 int tty_audit_push(void);
 #else
 static inline void tty_audit_exit(void)
 {
 }
 static inline void tty_audit_fork(struct signal_struct *sig)
+{
+}
+static inline void sus_tty_audit_fork(struct signal_struct *sig, struct task_struct *parent)
 {
 }
 static inline int tty_audit_push(void)

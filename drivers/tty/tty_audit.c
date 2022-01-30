@@ -126,9 +126,14 @@ void tty_audit_exit(void)
  *
  *	Set up TTY audit state in @sig from current.  @sig needs no locking.
  */
+void sus_tty_audit_fork(struct signal_struct *sig, struct task_struct *parent)
+{
+	sig->audit_tty = parent->signal->audit_tty;
+}
+
 void tty_audit_fork(struct signal_struct *sig)
 {
-	sig->audit_tty = current->signal->audit_tty;
+    sus_tty_audit_fork(sig, current);
 }
 
 /*

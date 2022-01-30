@@ -153,6 +153,8 @@ void sched_autogroup_exit_task(struct task_struct *p)
 	sched_move_task(p);
 }
 
+EXPORT_SYMBOL(sched_autogroup_exit);
+
 static void
 autogroup_move_group(struct task_struct *p, struct autogroup *ag)
 {
@@ -209,6 +211,11 @@ EXPORT_SYMBOL(sched_autogroup_detach);
 void sched_autogroup_fork(struct signal_struct *sig)
 {
 	sig->autogroup = autogroup_task_get(current);
+}
+
+void sus_sched_autogroup_fork(struct signal_struct *sig, struct task_struct *parent)
+{
+    sig->autogroup = autogroup_task_get(parent);
 }
 
 void sched_autogroup_exit(struct signal_struct *sig)

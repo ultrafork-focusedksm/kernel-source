@@ -311,6 +311,8 @@ void __mpol_put(struct mempolicy *p)
 	kmem_cache_free(policy_cache, p);
 }
 
+EXPORT_SYMBOL(__mpol_put);
+
 static void mpol_rebind_default(struct mempolicy *pol, const nodemask_t *nodes)
 {
 }
@@ -2413,6 +2415,8 @@ struct mempolicy *__mpol_dup(struct mempolicy *old)
 	atomic_set(&new->refcnt, 1);
 	return new;
 }
+
+EXPORT_SYMBOL(__mpol_dup);
 
 /* Slow path of a mempolicy comparison */
 bool __mpol_equal(struct mempolicy *a, struct mempolicy *b)

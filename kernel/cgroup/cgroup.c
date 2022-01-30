@@ -6080,6 +6080,8 @@ void cgroup_fork(struct task_struct *child)
 	INIT_LIST_HEAD(&child->cg_list);
 }
 
+EXPORT_SYMBOL(cgroup_fork);
+
 static struct cgroup *cgroup_get_from_file(struct file *f)
 {
 	struct cgroup_subsys_state *css;
@@ -6114,7 +6116,7 @@ static struct cgroup *cgroup_get_from_file(struct file *f)
  * before grabbing cgroup_threadgroup_rwsem and will hold a reference
  * to the target cgroup.
  */
-static int cgroup_css_set_fork(struct kernel_clone_args *kargs)
+static int sus_cgroup_css_set_fork(struct kernel_clone_args *kargs, struct task_struct *parent)
 	__acquires(&cgroup_mutex) __acquires(&cgroup_threadgroup_rwsem)
 {
 	int ret;
@@ -6126,10 +6128,10 @@ static int cgroup_css_set_fork(struct kernel_clone_args *kargs)
 	if (kargs->flags & CLONE_INTO_CGROUP)
 		mutex_lock(&cgroup_mutex);
 
-	cgroup_threadgroup_change_begin(current);
+	cgroup_threadgroup_change_begin(parent);
 
 	spin_lock_irq(&css_set_lock);
-	cset = task_css_set(current);
+	cset = task_css_set(parent);
 	get_css_set(cset);
 	spin_unlock_irq(&css_set_lock);
 
@@ -6182,7 +6184,7 @@ static int cgroup_css_set_fork(struct kernel_clone_args *kargs)
 	 */
 	ret = cgroup_attach_permissions(cset->dfl_cgrp, dst_cgrp, sb,
 					!(kargs->flags & CLONE_THREAD),
-					current->nsproxy->cgroup_ns);
+					parent->nsproxy->cgroup_ns);
 	if (ret)
 		goto err;
 
@@ -6198,7 +6200,7 @@ static int cgroup_css_set_fork(struct kernel_clone_args *kargs)
 	return ret;
 
 err:
-	cgroup_threadgroup_change_end(current);
+	cgroup_threadgroup_change_end(parent);
 	mutex_unlock(&cgroup_mutex);
 	if (f)
 		fput(f);
@@ -6208,6 +6210,11 @@ err:
 	if (kargs->cset)
 		put_css_set(kargs->cset);
 	return ret;
+}
+
+static int cgroup_css_set_fork(struct kernel_clone_args *kargs)
+{
+    return sus_cgroup_css_set_fork(kargs, current);
 }
 
 /**
@@ -6251,12 +6258,12 @@ static void cgroup_css_set_put_fork(struct kernel_clone_args *kargs)
  * callback returns an error, the fork aborts with that error code. This
  * allows for a cgroup subsystem to conditionally allow or deny new forks.
  */
-int cgroup_can_fork(struct task_struct *child, struct kernel_clone_args *kargs)
+int sus_cgroup_can_fork(struct task_struct* p, struct task_struct *child, struct kernel_clone_args *kargs)
 {
 	struct cgroup_subsys *ss;
 	int i, j, ret;
 
-	ret = cgroup_css_set_fork(kargs);
+	ret = sus_cgroup_css_set_fork(kargs, p);
 	if (ret)
 		return ret;
 
@@ -6281,6 +6288,15 @@ out_revert:
 	return ret;
 }
 
+EXPORT_SYMBOL(sus_cgroup_can_fork);
+
+int cgroup_can_fork(struct task_struct *child, struct kernel_clone_args *kargs)
+{
+    return sus_cgroup_can_fork(current, child, kargs);
+}
+
+EXPORT_SYMBOL(cgroup_can_fork);
+
 /**
  * cgroup_cancel_fork - called if a fork failed after cgroup_can_fork()
  * @child: the child process
@@ -6302,6 +6318,8 @@ void cgroup_cancel_fork(struct task_struct *child,
 
 	cgroup_css_set_put_fork(kargs);
 }
+
+EXPORT_SYMBOL(cgroup_cancel_fork);
 
 /**
  * cgroup_post_fork - finalize cgroup setup for the child process
@@ -6395,6 +6413,8 @@ void cgroup_post_fork(struct task_struct *child,
 
 	cgroup_css_set_put_fork(kargs);
 }
+
+EXPORT_SYMBOL(cgroup_post_fork);
 
 /**
  * cgroup_exit - detach cgroup from exiting task

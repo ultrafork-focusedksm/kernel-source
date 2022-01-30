@@ -179,11 +179,18 @@ void recalc_sigpending_and_wake(struct task_struct *t)
 		signal_wake_up(t, 0);
 }
 
+void sus_recalc_sigpending(struct task_struct* t)
+{
+
+	if (!recalc_sigpending_tsk(t) && !freezing(t))
+		sus_clear_thread_flag(TIF_SIGPENDING, t);
+}
+
+EXPORT_SYMBOL(sus_recalc_sigpending);
+
 void recalc_sigpending(void)
 {
-	if (!recalc_sigpending_tsk(current) && !freezing(current))
-		clear_thread_flag(TIF_SIGPENDING);
-
+    sus_recalc_sigpending(current);
 }
 EXPORT_SYMBOL(recalc_sigpending);
 
@@ -297,6 +304,8 @@ bool task_set_jobctl_pending(struct task_struct *task, unsigned long mask)
 	return true;
 }
 
+EXPORT_SYMBOL(task_set_jobctl_pending);
+
 /**
  * task_clear_jobctl_trapping - clear jobctl trapping bit
  * @task: target task
@@ -388,10 +397,10 @@ static bool task_participate_group_stop(struct task_struct *task)
 	return false;
 }
 
-void task_join_group_stop(struct task_struct *task)
+void sus_task_join_group_stop(struct task_struct *task, struct task_struct *parent)
 {
-	unsigned long mask = current->jobctl & JOBCTL_STOP_SIGMASK;
-	struct signal_struct *sig = current->signal;
+	unsigned long mask = parent->jobctl & JOBCTL_STOP_SIGMASK;
+	struct signal_struct *sig = parent->signal;
 
 	if (sig->group_stop_count) {
 		sig->group_stop_count++;
@@ -402,6 +411,15 @@ void task_join_group_stop(struct task_struct *task)
 	/* Have the new thread join an on-going signal group stop */
 	task_set_jobctl_pending(task, mask | JOBCTL_STOP_PENDING);
 }
+
+EXPORT_SYMBOL(sus_task_join_group_stop);
+
+void task_join_group_stop(struct task_struct *task)
+{
+    sus_task_join_group_stop(task, current);
+}
+
+EXPORT_SYMBOL(task_join_group_stop);
 
 /*
  * allocate a new signal queue record
@@ -2365,6 +2383,8 @@ int ptrace_notify(int exit_code, unsigned long message)
 	spin_unlock_irq(&current->sighand->siglock);
 	return signr;
 }
+
+EXPORT_SYMBOL(ptrace_notify);
 
 /**
  * do_signal_stop - handle group stop for SIGSTOP and other stop signals

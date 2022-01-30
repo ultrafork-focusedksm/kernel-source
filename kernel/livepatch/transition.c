@@ -615,6 +615,8 @@ void klp_copy_process(struct task_struct *child)
 	/* TIF_PATCH_PENDING gets copied in setup_thread_stack() */
 }
 
+EXPORT_SYMBOL(klp_copy_process);
+
 /*
  * Drop TIF_PATCH_PENDING of all tasks on admin's request. This forces an
  * existing transition to finish.

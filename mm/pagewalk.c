@@ -479,6 +479,8 @@ int walk_page_range(struct mm_struct *mm, unsigned long start,
 	return err;
 }
 
+EXPORT_SYMBOL(walk_page_range);
+
 /*
  * Similar to walk_page_range() but can walk any page tables even if they are
  * not backed by VMAs. Because 'unusual' entries may be walked this function

@@ -74,6 +74,8 @@ void __ptrace_link(struct task_struct *child, struct task_struct *new_parent,
 	child->ptracer_cred = get_cred(ptracer_cred);
 }
 
+EXPORT_SYMBOL(__ptrace_link);
+
 /*
  * ptrace a task: make the debugger its new parent and
  * move it to the ptrace list.

@@ -106,10 +106,15 @@ static unsigned long sched_core_clone_cookie(struct task_struct *p)
 	return cookie;
 }
 
-void sched_core_fork(struct task_struct *p)
+void sus_sched_core_fork(struct task_struct *p, struct task_struct *parent)
 {
 	RB_CLEAR_NODE(&p->core_node);
-	p->core_cookie = sched_core_clone_cookie(current);
+	p->core_cookie = sched_core_clone_cookie(parent);
+}
+
+void sched_core_fork(struct task_struct *p)
+{
+    sus_sched_core_fork(p, current);
 }
 
 void sched_core_free(struct task_struct *p)

@@ -541,9 +541,9 @@ static inline void fpu_inherit_perms(struct fpu *dst_fpu)
 }
 
 /* Clone current's FPU state on fork */
-int fpu_clone(struct task_struct *dst, unsigned long clone_flags)
+int fpu_clone(struct task_struct *dst, unsigned long clone_flags, struct task_struct *parent)
 {
-	struct fpu *src_fpu = &current->thread.fpu;
+	struct fpu *src_fpu = &parent->thread.fpu;
 	struct fpu *dst_fpu = &dst->thread.fpu;
 
 	/* The new task's FPU state cannot be valid in the hardware. */

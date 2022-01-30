@@ -59,6 +59,8 @@ struct pid init_struct_pid = {
 	}, }
 };
 
+EXPORT_SYMBOL(init_struct_pid);
+
 int pid_max = PID_MAX_DEFAULT;
 
 #define RESERVED_PIDS		300
@@ -155,6 +157,8 @@ void free_pid(struct pid *pid)
 
 	call_rcu(&pid->rcu, delayed_put_pid);
 }
+
+EXPORT_SYMBOL(free_pid);
 
 struct pid *alloc_pid(struct pid_namespace *ns, pid_t *set_tid,
 		      size_t set_tid_size)
@@ -299,6 +303,8 @@ out_free:
 	return ERR_PTR(retval);
 }
 
+EXPORT_SYMBOL(alloc_pid);
+
 void disable_pid_allocation(struct pid_namespace *ns)
 {
 	spin_lock_irq(&pidmap_lock);
@@ -333,6 +339,8 @@ void attach_pid(struct task_struct *task, enum pid_type type)
 	struct pid *pid = *task_pid_ptr(task, type);
 	hlist_add_head_rcu(&task->pid_links[type], &pid->tasks[type]);
 }
+
+EXPORT_SYMBOL(attach_pid);
 
 static void __change_pid(struct task_struct *task, enum pid_type type,
 			struct pid *new)

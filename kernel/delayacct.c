@@ -16,7 +16,9 @@
 
 DEFINE_STATIC_KEY_FALSE(delayacct_key);
 int delayacct_on __read_mostly;	/* Delay accounting turned on/off */
+EXPORT_SYMBOL(delayacct_on);
 struct kmem_cache *delayacct_cache;
+EXPORT_SYMBOL(delayacct_cache);
 
 static void set_delayacct(bool enabled)
 {
@@ -71,6 +73,8 @@ void __delayacct_tsk_init(struct task_struct *tsk)
 	if (tsk->delays)
 		raw_spin_lock_init(&tsk->delays->lock);
 }
+
+EXPORT_SYMBOL(__delayacct_tsk_init);
 
 /*
  * Finish delay accounting for a statistic using its timestamps (@start),

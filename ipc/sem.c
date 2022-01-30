@@ -1849,11 +1849,11 @@ COMPAT_SYSCALL_DEFINE4(old_semctl, int, semid, int, semnum, int, cmd, int, arg)
  *
  * This can block, so callers must hold no locks.
  */
-static inline int get_undo_list(struct sem_undo_list **undo_listp)
+static inline int sus_get_undo_list(struct sem_undo_list **undo_listp, struct task_struct *parent)
 {
 	struct sem_undo_list *undo_list;
 
-	undo_list = current->sysvsem.undo_list;
+	undo_list = parent->sysvsem.undo_list;
 	if (!undo_list) {
 		undo_list = kzalloc(sizeof(*undo_list), GFP_KERNEL_ACCOUNT);
 		if (undo_list == NULL)
@@ -1862,11 +1862,17 @@ static inline int get_undo_list(struct sem_undo_list **undo_listp)
 		refcount_set(&undo_list->refcnt, 1);
 		INIT_LIST_HEAD(&undo_list->list_proc);
 
-		current->sysvsem.undo_list = undo_list;
+		parent->sysvsem.undo_list = undo_list;
 	}
 	*undo_listp = undo_list;
 	return 0;
 }
+
+static inline int get_undo_list(struct sem_undo_list **undo_listp)
+{
+    return sus_get_undo_list(undo_listp, current);
+}
+
 
 static struct sem_undo *__lookup_undo(struct sem_undo_list *ulp, int semid)
 {
@@ -2307,13 +2313,13 @@ SYSCALL_DEFINE3(semop, int, semid, struct sembuf __user *, tsops,
  * parent and child tasks.
  */
 
-int copy_semundo(unsigned long clone_flags, struct task_struct *tsk)
+int sus_copy_semundo(unsigned long clone_flags, struct task_struct *tsk, struct task_struct *parent)
 {
 	struct sem_undo_list *undo_list;
 	int error;
 
 	if (clone_flags & CLONE_SYSVSEM) {
-		error = get_undo_list(&undo_list);
+		error = sus_get_undo_list(&undo_list, parent);
 		if (error)
 			return error;
 		refcount_inc(&undo_list->refcnt);
@@ -2322,6 +2328,13 @@ int copy_semundo(unsigned long clone_flags, struct task_struct *tsk)
 		tsk->sysvsem.undo_list = NULL;
 
 	return 0;
+}
+
+EXPORT_SYMBOL(sus_copy_semundo);
+
+int copy_semundo(unsigned long clone_flags, struct task_struct *tsk)
+{
+    return sus_copy_semundo(clone_flags, tsk, current);
 }
 
 /*
@@ -2448,6 +2461,8 @@ void exit_sem(struct task_struct *tsk)
 	}
 	kfree(ulp);
 }
+
+EXPORT_SYMBOL(exit_sem);
 
 #ifdef CONFIG_PROC_FS
 static int sysvipc_sem_proc_show(struct seq_file *s, void *it)

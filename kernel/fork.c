@@ -141,6 +141,27 @@ DEFINE_PER_CPU(unsigned long, process_counts) = 0;
 
 __cacheline_aligned DEFINE_RWLOCK(tasklist_lock);  /* outer */
 
+void increment_process_count()
+{
+    __this_cpu_inc(process_counts);
+}
+
+EXPORT_SYMBOL(increment_process_count);
+
+void fork_write_lock_irq()
+{
+    write_lock_irq(&tasklist_lock);
+}
+
+EXPORT_SYMBOL(fork_write_lock_irq);
+
+void fork_write_unlock_irq()
+{
+    write_unlock_irq(&tasklist_lock);
+}
+
+EXPORT_SYMBOL(fork_write_unlock_irq);
+
 #ifdef CONFIG_PROVE_RCU
 int lockdep_tasklist_lock_is_held(void)
 {
@@ -533,6 +554,8 @@ void put_task_stack(struct task_struct *tsk)
 	if (refcount_dec_and_test(&tsk->stack_refcount))
 		release_task_stack(tsk);
 }
+
+EXPORT_SYMBOL(put_task_stack);
 #endif
 
 void free_task(struct task_struct *tsk)
@@ -578,7 +601,7 @@ static void dup_mm_exe_file(struct mm_struct *mm, struct mm_struct *oldmm)
 
 #ifdef CONFIG_MMU
 static __latent_entropy int dup_mmap(struct mm_struct *mm,
-					struct mm_struct *oldmm)
+					struct mm_struct *oldmm, struct task_struct *parent)
 {
 	struct vm_area_struct *mpnt, *tmp, *prev, **pprev;
 	struct rb_node **rb_link, *rb_parent;
@@ -629,7 +652,7 @@ static __latent_entropy int dup_mmap(struct mm_struct *mm,
 		 * Don't duplicate many vmas if we've been oom-killed (for
 		 * example)
 		 */
-		if (fatal_signal_pending(current)) {
+		if (fatal_signal_pending(parent)) {
 			retval = -EINTR;
 			goto out;
 		}
@@ -734,12 +757,15 @@ static inline int mm_alloc_pgd(struct mm_struct *mm)
 	return 0;
 }
 
-static inline void mm_free_pgd(struct mm_struct *mm)
+void mm_free_pgd(struct mm_struct *mm)
 {
 	pgd_free(mm, mm->pgd);
 }
+
+EXPORT_SYMBOL(mm_free_pgd);
+
 #else
-static int dup_mmap(struct mm_struct *mm, struct mm_struct *oldmm)
+static int dup_mmap(struct mm_struct *mm, struct mm_struct *oldmm, struct task_struct *parent)
 {
 	mmap_write_lock(oldmm);
 	dup_mm_exe_file(mm, oldmm);
@@ -750,7 +776,7 @@ static int dup_mmap(struct mm_struct *mm, struct mm_struct *oldmm)
 #define mm_free_pgd(mm)
 #endif /* CONFIG_MMU */
 
-static void check_mm(struct mm_struct *mm)
+void check_mm(struct mm_struct *mm)
 {
 	int i;
 
@@ -774,8 +800,29 @@ static void check_mm(struct mm_struct *mm)
 #endif
 }
 
-#define allocate_mm()	(kmem_cache_alloc(mm_cachep, GFP_KERNEL))
-#define free_mm(mm)	(kmem_cache_free(mm_cachep, (mm)))
+EXPORT_SYMBOL(check_mm);
+
+struct mm_struct *allocate_mm()
+{
+    return kmem_cache_alloc(mm_cachep, GFP_KERNEL);
+}
+
+EXPORT_SYMBOL(allocate_mm);
+
+void free_mm(struct mm_struct* mm)
+{
+    kmem_cache_free(mm_cachep, (mm));
+}
+
+EXPORT_SYMBOL(free_mm);
+
+void sus_destroy_context(struct mm_struct* mm)
+{
+    destroy_context(mm);
+}
+
+EXPORT_SYMBOL(sus_destroy_context);
+
 
 /*
  * Called when the last reference to the mm
@@ -795,7 +842,15 @@ void __mmdrop(struct mm_struct *mm)
 	mm_pasid_drop(mm);
 	free_mm(mm);
 }
+
 EXPORT_SYMBOL_GPL(__mmdrop);
+
+void sus_mmu_notifier_subscriptions_destroy(struct mm_struct *mm)
+{
+       mmu_notifier_subscriptions_destroy(mm);
+}
+
+EXPORT_SYMBOL(sus_mmu_notifier_subscriptions_destroy);
 
 static void mmdrop_async_fn(struct work_struct *work)
 {
@@ -813,7 +868,7 @@ static void mmdrop_async(struct mm_struct *mm)
 	}
 }
 
-static inline void free_signal_struct(struct signal_struct *sig)
+void free_signal_struct(struct signal_struct *sig)
 {
 	taskstats_tgid_free(sig);
 	sched_autogroup_exit(sig);
@@ -823,13 +878,29 @@ static inline void free_signal_struct(struct signal_struct *sig)
 	 */
 	if (sig->oom_mm)
 		mmdrop_async(sig->oom_mm);
-	kmem_cache_free(signal_cachep, sig);
+    signal_cache_free(sig);
 }
+
+EXPORT_SYMBOL(free_signal_struct);
+
+void sus_taskstats_tgid_free(struct signal_struct *sig)
+{
+       taskstats_tgid_free(sig);
+}
+
+EXPORT_SYMBOL(sus_taskstats_tgid_free);
+
+void signal_cache_free(struct signal_struct *sig)
+{
+    kmem_cache_free(signal_cachep, sig);
+}
+
+EXPORT_SYMBOL(signal_cache_free);
 
 static inline void put_signal_struct(struct signal_struct *sig)
 {
-	if (refcount_dec_and_test(&sig->sigcnt))
-		free_signal_struct(sig);
+    if (refcount_dec_and_test(&sig->sigcnt))
+        free_signal_struct(sig);
 }
 
 void __put_task_struct(struct task_struct *tsk)
@@ -961,7 +1032,7 @@ void set_task_stack_end_magic(struct task_struct *tsk)
 	*stackend = STACK_END_MAGIC;	/* for overflow detection */
 }
 
-static struct task_struct *dup_task_struct(struct task_struct *orig, int node)
+struct task_struct *dup_task_struct(struct task_struct *orig, int node)
 {
 	struct task_struct *tsk;
 	int err;
@@ -1056,6 +1127,8 @@ free_tsk:
 	return NULL;
 }
 
+EXPORT_SYMBOL(dup_task_struct);
+
 __cacheline_aligned_in_smp DEFINE_SPINLOCK(mmlist_lock);
 
 static unsigned long default_dump_filter = MMF_DUMP_FILTER_DEFAULT;
@@ -1104,6 +1177,7 @@ static void mm_init_uprobes_state(struct mm_struct *mm)
 }
 
 static struct mm_struct *mm_init(struct mm_struct *mm, struct task_struct *p,
+        struct task_struct* parent,
 	struct user_namespace *user_ns)
 {
 	mm->mmap = NULL;
@@ -1134,9 +1208,9 @@ static struct mm_struct *mm_init(struct mm_struct *mm, struct task_struct *p,
 	mm_init_uprobes_state(mm);
 	hugetlb_count_init(mm);
 
-	if (current->mm) {
-		mm->flags = current->mm->flags & MMF_INIT_MASK;
-		mm->def_flags = current->mm->def_flags & VM_INIT_DEF_MASK;
+	if (parent->mm) {
+		mm->flags = parent->mm->flags & MMF_INIT_MASK;
+		mm->def_flags = parent->mm->def_flags & VM_INIT_DEF_MASK;
 	} else {
 		mm->flags = default_dump_filter;
 		mm->def_flags = 0;
@@ -1170,7 +1244,7 @@ struct mm_struct *mm_alloc(void)
 		return NULL;
 
 	memset(mm, 0, sizeof(*mm));
-	return mm_init(mm, current, current_user_ns());
+	return mm_init(mm, current, current, current_user_ns());
 }
 
 static inline void __mmput(struct mm_struct *mm)
@@ -1515,10 +1589,10 @@ static struct mm_struct *dup_mm(struct task_struct *tsk,
 
 	memcpy(mm, oldmm, sizeof(*mm));
 
-	if (!mm_init(mm, tsk, mm->user_ns))
+	if (!mm_init(mm, tsk, current, mm->user_ns))
 		goto fail_nomem;
 
-	err = dup_mmap(mm, oldmm);
+	err = dup_mmap(mm, oldmm, current);
 	if (err)
 		goto free_pt;
 
@@ -1540,7 +1614,45 @@ fail_nomem:
 	return NULL;
 }
 
-static int copy_mm(unsigned long clone_flags, struct task_struct *tsk)
+struct mm_struct *sus_dup_mm(struct task_struct *tsk, struct mm_struct *oldmm,
+                            struct task_struct *parent)
+{
+       struct mm_struct *mm;
+       int err;
+
+       mm = allocate_mm();
+       if (!mm)
+               goto fail_nomem;
+
+       memcpy(mm, oldmm, sizeof(*mm));
+
+       if (!mm_init(mm, tsk, parent, mm->user_ns))
+               goto fail_nomem;
+
+       err = dup_mmap(mm, oldmm, parent);
+       if (err)
+               goto free_pt;
+
+       mm->hiwater_rss = get_mm_rss(mm);
+       mm->hiwater_vm = mm->total_vm;
+
+       if (mm->binfmt && !try_module_get(mm->binfmt->module))
+               goto free_pt;
+
+       return mm;
+
+free_pt:
+       /* don't put binfmt in mmput, we haven't got module yet */
+       mm->binfmt = NULL;
+       mm_init_owner(mm, NULL);
+       mmput(mm);
+
+fail_nomem:
+       return NULL;
+}
+
+
+int copy_mm(unsigned long clone_flags, struct task_struct *tsk)
 {
 	struct mm_struct *mm, *oldmm;
 
@@ -1580,6 +1692,50 @@ static int copy_mm(unsigned long clone_flags, struct task_struct *tsk)
 	return 0;
 }
 
+int sus_copy_mm(unsigned long clone_flags, struct task_struct *tsk,
+               struct task_struct *parent)
+{
+       struct mm_struct *mm, *oldmm;
+
+       tsk->min_flt = tsk->maj_flt = 0;
+       tsk->nvcsw = tsk->nivcsw = 0;
+#ifdef CONFIG_DETECT_HUNG_TASK
+       tsk->last_switch_count = tsk->nvcsw + tsk->nivcsw;
+       tsk->last_switch_time = 0;
+#endif
+
+       tsk->mm = NULL;
+       tsk->active_mm = NULL;
+
+       /*
+        * Are we cloning a kernel thread?
+        *
+        * We need to steal a active VM for that..
+        */
+       oldmm = parent->mm;
+       if (!oldmm)
+               return 0;
+
+       /* initialize the new vmacache entries */
+       vmacache_flush(tsk);
+
+       if (clone_flags & CLONE_VM) {
+               mmget(oldmm);
+               mm = oldmm;
+       } else {
+               mm = sus_dup_mm(tsk, parent->mm, parent);
+               if (!mm)
+                       return -ENOMEM;
+       }
+
+       tsk->mm = mm;
+       tsk->active_mm = mm;
+       return 0;
+}
+
+EXPORT_SYMBOL(sus_copy_mm);
+
+
 static int copy_fs(unsigned long clone_flags, struct task_struct *tsk)
 {
 	struct fs_struct *fs = current->fs;
@@ -1600,7 +1756,30 @@ static int copy_fs(unsigned long clone_flags, struct task_struct *tsk)
 	return 0;
 }
 
-static int copy_files(unsigned long clone_flags, struct task_struct *tsk)
+int sus_copy_fs(unsigned long clone_flags, struct task_struct *tsk, struct task_struct *parent)
+{
+	struct fs_struct *fs = parent->fs;
+	if (clone_flags & CLONE_FS) {
+		/* tsk->fs is already what we want */
+		spin_lock(&fs->lock);
+		if (fs->in_exec) {
+			spin_unlock(&fs->lock);
+			return -EAGAIN;
+		}
+		fs->users++;
+		spin_unlock(&fs->lock);
+		return 0;
+	}
+	tsk->fs = copy_fs_struct(fs);
+	if (!tsk->fs)
+		return -ENOMEM;
+	return 0;
+}
+
+EXPORT_SYMBOL(sus_copy_fs);
+
+
+int sus_copy_files(unsigned long clone_flags, struct task_struct *tsk, struct task_struct *parent)
 {
 	struct files_struct *oldf, *newf;
 	int error = 0;
@@ -1608,7 +1787,7 @@ static int copy_files(unsigned long clone_flags, struct task_struct *tsk)
 	/*
 	 * A background process may not have any files ...
 	 */
-	oldf = current->files;
+	oldf = parent->files;
 	if (!oldf)
 		goto out;
 
@@ -1626,6 +1805,20 @@ static int copy_files(unsigned long clone_flags, struct task_struct *tsk)
 out:
 	return error;
 }
+
+EXPORT_SYMBOL(sus_copy_files);
+
+static int copy_files(unsigned long clone_flags, struct task_struct *tsk)
+{
+    return sus_copy_files(clone_flags, tsk, current);
+}
+
+int sus_copy_io(unsigned long clone_flags, struct task_struct *tsk)
+{
+       return copy_io(clone_flags, tsk);
+}
+
+EXPORT_SYMBOL(sus_copy_io);
 
 static int copy_sighand(unsigned long clone_flags, struct task_struct *tsk)
 {
@@ -1652,6 +1845,34 @@ static int copy_sighand(unsigned long clone_flags, struct task_struct *tsk)
 	return 0;
 }
 
+int sus_copy_sighand(unsigned long clone_flags, struct task_struct *tsk,
+        struct task_struct *parent)
+{
+	struct sighand_struct *sig;
+
+	if (clone_flags & CLONE_SIGHAND) {
+		refcount_inc(&parent->sighand->count);
+		return 0;
+	}
+	sig = kmem_cache_alloc(sighand_cachep, GFP_KERNEL);
+	RCU_INIT_POINTER(tsk->sighand, sig);
+	if (!sig)
+		return -ENOMEM;
+
+	refcount_set(&sig->count, 1);
+	spin_lock_irq(&parent->sighand->siglock);
+	memcpy(sig->action, parent->sighand->action, sizeof(sig->action));
+	spin_unlock_irq(&parent->sighand->siglock);
+
+	/* Reset all signal handler not set to SIG_IGN to SIG_DFL. */
+	if (clone_flags & CLONE_CLEAR_SIGHAND)
+		flush_signal_handlers(tsk, 0);
+
+	return 0;
+}
+
+EXPORT_SYMBOL(sus_copy_sighand);
+
 void __cleanup_sighand(struct sighand_struct *sighand)
 {
 	if (refcount_dec_and_test(&sighand->count)) {
@@ -1663,6 +1884,8 @@ void __cleanup_sighand(struct sighand_struct *sighand)
 		kmem_cache_free(sighand_cachep, sighand);
 	}
 }
+
+EXPORT_SYMBOL(__cleanup_sighand);
 
 /*
  * Initialize POSIX timer handling for a thread group.
@@ -1727,7 +1950,60 @@ static int copy_signal(unsigned long clone_flags, struct task_struct *tsk)
 	return 0;
 }
 
-static void copy_seccomp(struct task_struct *p)
+int sus_copy_signal(unsigned long clone_flags, struct task_struct *tsk, struct task_struct* target)
+{
+       struct signal_struct *sig;
+
+       if (clone_flags & CLONE_THREAD)
+               return 0;
+
+       sig = kmem_cache_zalloc(signal_cachep, GFP_KERNEL);
+       tsk->signal = sig;
+       if (!sig)
+               return -ENOMEM;
+
+       sig->nr_threads = 1;
+       atomic_set(&sig->live, 1);
+       refcount_set(&sig->sigcnt, 1);
+
+       /* list_add(thread_node, thread_head) without INIT_LIST_HEAD() */
+       sig->thread_head = (struct list_head)LIST_HEAD_INIT(tsk->thread_node);
+       tsk->thread_node = (struct list_head)LIST_HEAD_INIT(sig->thread_head);
+
+       init_waitqueue_head(&sig->wait_chldexit);
+       sig->curr_target = tsk;
+       init_sigpending(&sig->shared_pending);
+       INIT_HLIST_HEAD(&sig->multiprocess);
+       seqlock_init(&sig->stats_lock);
+       prev_cputime_init(&sig->prev_cputime);
+
+#ifdef CONFIG_POSIX_TIMERS
+       INIT_LIST_HEAD(&sig->posix_timers);
+       hrtimer_init(&sig->real_timer, CLOCK_MONOTONIC, HRTIMER_MODE_REL);
+       sig->real_timer.function = it_real_fn;
+#endif
+
+       task_lock(target->group_leader);
+       memcpy(sig->rlim, target->signal->rlim, sizeof sig->rlim);
+       task_unlock(target->group_leader);
+
+       posix_cpu_timers_init_group(sig);
+
+       sus_tty_audit_fork(sig, target);
+       sus_sched_autogroup_fork(sig, target);
+
+       sig->oom_score_adj = target->signal->oom_score_adj;
+       sig->oom_score_adj_min = target->signal->oom_score_adj_min;
+
+       mutex_init(&sig->cred_guard_mutex);
+       init_rwsem(&sig->exec_update_lock);
+
+       return 0;
+}
+
+EXPORT_SYMBOL(sus_copy_signal);
+
+void copy_seccomp(struct task_struct *p)
 {
 #ifdef CONFIG_SECCOMP
 	/*
@@ -1759,6 +2035,43 @@ static void copy_seccomp(struct task_struct *p)
 		set_task_syscall_work(p, SECCOMP);
 #endif
 }
+
+EXPORT_SYMBOL(copy_seccomp);
+
+void sus_copy_seccomp(struct task_struct *p, struct task_struct *orig)
+{
+#ifdef CONFIG_SECCOMP
+       /*
+        * Must be called with sighand->lock held, which is common to
+        * all threads in the group. Holding cred_guard_mutex is not
+        * needed because this new task is not yet running and cannot
+        * be racing exec.
+        */
+       assert_spin_locked(&orig->sighand->siglock);
+
+       /* Ref-count the new filter user, and assign it. */
+       get_seccomp_filter(orig);
+       p->seccomp = orig->seccomp;
+
+       /*
+        * Explicitly enable no_new_privs here in case it got set
+        * between the task_struct being duplicated and holding the
+        * sighand lock. The seccomp state and nnp must be in sync.
+        */
+       if (task_no_new_privs(orig))
+               task_set_no_new_privs(p);
+
+       /*
+        * If the parent gained a seccomp mode after copying thread
+        * flags and between before we held the sighand lock, we have
+        * to manually enable the seccomp thread flag here.
+        */
+       if (p->seccomp.mode != SECCOMP_MODE_DISABLED)
+               set_task_syscall_work(p, SECCOMP);
+#endif
+}
+
+EXPORT_SYMBOL(sus_copy_seccomp);
 
 SYSCALL_DEFINE1(set_tid_address, int __user *, tidptr)
 {
@@ -1927,6 +2240,14 @@ const struct file_operations pidfd_fops = {
 #endif
 };
 
+struct file *fork_get_pidfile(struct pid *pid)
+{
+       return anon_inode_getfile("[pidfd]", &pidfd_fops, pid,
+                                 O_RDWR | O_CLOEXEC);
+}
+
+EXPORT_SYMBOL(fork_get_pidfile);
+
 static void __delayed_free_task(struct rcu_head *rhp)
 {
 	struct task_struct *tsk = container_of(rhp, struct task_struct, rcu);
@@ -1942,7 +2263,7 @@ static __always_inline void delayed_free_task(struct task_struct *tsk)
 		free_task(tsk);
 }
 
-static void copy_oom_score_adj(u64 clone_flags, struct task_struct *tsk)
+void sus_copy_oom_score_adj(u64 clone_flags, struct task_struct *tsk, struct task_struct *parent)
 {
 	/* Skip if kernel thread */
 	if (!tsk->mm)
@@ -1961,6 +2282,13 @@ static void copy_oom_score_adj(u64 clone_flags, struct task_struct *tsk)
 	mutex_unlock(&oom_adj_mutex);
 }
 
+EXPORT_SYMBOL(sus_copy_oom_score_adj);
+
+static void copy_oom_score_adj(u64 clone_flags, struct task_struct *tsk)
+{
+    sus_copy_oom_score_adj(clone_flags, tsk, current);
+}
+
 /*
  * This creates a new process as a copy of the old one,
  * but does not actually start it yet.
@@ -1969,7 +2297,7 @@ static void copy_oom_score_adj(u64 clone_flags, struct task_struct *tsk)
  * parts of the process environment (as per the clone
  * flags). The actual kick-off is left to the caller.
  */
-static __latent_entropy struct task_struct *copy_process(
+__latent_entropy struct task_struct *copy_process(
 					struct pid *pid,
 					int trace,
 					int node,
@@ -2533,6 +2861,8 @@ fork_out:
 	spin_unlock_irq(&current->sighand->siglock);
 	return ERR_PTR(retval);
 }
+
+EXPORT_SYMBOL(copy_process);
 
 static inline void init_idle_pids(struct task_struct *idle)
 {

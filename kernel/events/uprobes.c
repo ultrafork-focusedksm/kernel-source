@@ -1789,10 +1789,11 @@ static void dup_xol_work(struct callback_head *work)
 /*
  * Called in context of a new clone/fork from copy_process.
  */
-void uprobe_copy_process(struct task_struct *t, unsigned long flags)
+void sus_uprobe_copy_process(struct task_struct *t, unsigned long flags,
+        struct task_struct *parent)
 {
-	struct uprobe_task *utask = current->utask;
-	struct mm_struct *mm = current->mm;
+	struct uprobe_task *utask = parent->utask;
+	struct mm_struct *mm = parent->mm;
 	struct xol_area *area;
 
 	t->utask = NULL;
@@ -1819,6 +1820,12 @@ void uprobe_copy_process(struct task_struct *t, unsigned long flags)
 	task_work_add(t, &t->utask->dup_xol_work, TWA_RESUME);
 }
 
+EXPORT_SYMBOL(sus_uprobe_copy_process);
+
+void uprobe_copy_process(struct task_struct *t, unsigned long flags)
+{
+    sus_uprobe_copy_process(t, flags, current);
+}
 /*
  * Current area->vaddr notion assume the trampoline address is always
  * equal area->vaddr.

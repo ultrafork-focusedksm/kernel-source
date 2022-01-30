@@ -143,6 +143,8 @@ bool freeze_task(struct task_struct *p)
 	return true;
 }
 
+EXPORT_SYMBOL(freeze_task);
+
 void __thaw_task(struct task_struct *p)
 {
 	unsigned long flags;

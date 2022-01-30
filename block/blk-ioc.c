@@ -230,6 +230,8 @@ void exit_io_context(struct task_struct *task)
 	}
 }
 
+EXPORT_SYMBOL(exit_io_context);
+
 static struct io_context *alloc_io_context(gfp_t gfp_flags, int node)
 {
 	struct io_context *ioc;

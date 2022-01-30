@@ -22,6 +22,7 @@
  */
 #include <asm/current.h>
 #define current_thread_info() ((struct thread_info *)current)
+#define sus_task_thread_info(task) ((struct thread_info*)task)
 #endif
 
 #include <linux/bitops.h>
@@ -129,8 +130,12 @@ static __always_inline unsigned long read_ti_thread_flags(struct thread_info *ti
 
 #define set_thread_flag(flag) \
 	set_ti_thread_flag(current_thread_info(), flag)
+#define sus_set_thread_flag(flag, t) \
+    set_ti_thread_flag(sus_task_thread_info(t), flag)
 #define clear_thread_flag(flag) \
 	clear_ti_thread_flag(current_thread_info(), flag)
+#define sus_clear_thread_flag(flag, t) \
+    clear_ti_thread_flag(sus_task_thread_info(t), flag)
 #define update_thread_flag(flag, value) \
 	update_ti_thread_flag(current_thread_info(), flag, value)
 #define test_and_set_thread_flag(flag) \

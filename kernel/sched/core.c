@@ -4455,7 +4455,8 @@ int sysctl_schedstats(struct ctl_table *table, int write, void *buffer,
 /*
  * fork()/clone()-time setup:
  */
-int sched_fork(unsigned long clone_flags, struct task_struct *p)
+int sus_sched_fork(unsigned long clone_flags, struct task_struct *p,
+        struct task_struct *parent)
 {
 	__sched_fork(clone_flags, p);
 	/*
@@ -4468,7 +4469,7 @@ int sched_fork(unsigned long clone_flags, struct task_struct *p)
 	/*
 	 * Make sure we do not leak PI boosting priority to the child.
 	 */
-	p->prio = current->normal_prio;
+	p->prio = parent->normal_prio;
 
 	uclamp_fork(p);
 
@@ -4518,6 +4519,15 @@ int sched_fork(unsigned long clone_flags, struct task_struct *p)
 	return 0;
 }
 
+EXPORT_SYMBOL(sus_sched_fork);
+
+int sched_fork(unsigned long clone_flags, struct task_struct *p) 
+{
+    return sus_sched_fork(clone_flags, p, current);
+}
+
+EXPORT_SYMBOL(sched_fork);
+
 void sched_cgroup_fork(struct task_struct *p, struct kernel_clone_args *kargs)
 {
 	unsigned long flags;
@@ -4551,6 +4561,8 @@ void sched_post_fork(struct task_struct *p)
 {
 	uclamp_post_fork(p);
 }
+
+EXPORT_SYMBOL(sched_post_fork);
 
 unsigned long to_ratio(u64 period, u64 runtime)
 {
@@ -4615,6 +4627,8 @@ void wake_up_new_task(struct task_struct *p)
 #endif
 	task_rq_unlock(rq, p, &rf);
 }
+
+EXPORT_SYMBOL(wake_up_new_task);
 
 #ifdef CONFIG_PREEMPT_NOTIFIERS
 

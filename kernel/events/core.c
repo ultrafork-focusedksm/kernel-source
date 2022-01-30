@@ -7879,6 +7879,8 @@ void perf_event_fork(struct task_struct *task)
 	perf_event_namespaces(task);
 }
 
+EXPORT_SYMBOL(perf_event_fork);
+
 /*
  * comm tracking
  */
@@ -12874,6 +12876,8 @@ void perf_event_free_task(struct task_struct *task)
 	}
 }
 
+EXPORT_SYMBOL(perf_event_free_task);
+
 void perf_event_delayed_put(struct task_struct *task)
 {
 	int ctxn;
@@ -13242,6 +13246,8 @@ int perf_event_init_task(struct task_struct *child, u64 clone_flags)
 
 	return 0;
 }
+
+EXPORT_SYMBOL(perf_event_init_task);
 
 static void __init perf_event_init_all_cpus(void)
 {

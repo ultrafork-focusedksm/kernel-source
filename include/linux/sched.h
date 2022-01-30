@@ -2274,21 +2274,27 @@ static inline void rseq_migrate(struct task_struct *t)
 	rseq_set_notify_resume(t);
 }
 
-/*
- * If parent process has a registered restartable sequences area, the
- * child inherits. Unregister rseq for a clone with CLONE_VM set.
- */
-static inline void rseq_fork(struct task_struct *t, unsigned long clone_flags)
+static inline void sus_rseq_fork(struct task_struct *t, unsigned long clone_flags,
+        struct task_struct *parent)
 {
 	if (clone_flags & CLONE_VM) {
 		t->rseq = NULL;
 		t->rseq_sig = 0;
 		t->rseq_event_mask = 0;
 	} else {
-		t->rseq = current->rseq;
-		t->rseq_sig = current->rseq_sig;
-		t->rseq_event_mask = current->rseq_event_mask;
+		t->rseq = parent->rseq;
+		t->rseq_sig = parent->rseq_sig;
+		t->rseq_event_mask = parent->rseq_event_mask;
 	}
+}
+
+/*
+ * If parent process has a registered restartable sequences area, the
+ * child inherits. Unregister rseq for a clone with CLONE_VM set.
+ */
+static inline void rseq_fork(struct task_struct *t, unsigned long clone_flags)
+{
+    sus_rseq_fork(t, clone_flags, current);
 }
 
 static inline void rseq_execve(struct task_struct *t)
@@ -2355,11 +2361,13 @@ const struct cpumask *sched_trace_rd_span(struct root_domain *rd);
 #ifdef CONFIG_SCHED_CORE
 extern void sched_core_free(struct task_struct *tsk);
 extern void sched_core_fork(struct task_struct *p);
+extern void sus_sched_core_fork(struct task_struct *p, struct task_struct *parent);
 extern int sched_core_share_pid(unsigned int cmd, pid_t pid, enum pid_type type,
 				unsigned long uaddr);
 #else
 static inline void sched_core_free(struct task_struct *tsk) { }
 static inline void sched_core_fork(struct task_struct *p) { }
+static inline void sus_sched_core_fork(struct task_struct *p, struct task_struct *parent) { }
 #endif
 
 #endif

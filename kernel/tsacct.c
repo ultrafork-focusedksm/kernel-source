@@ -173,4 +173,6 @@ void acct_clear_integrals(struct task_struct *tsk)
 	tsk->acct_rss_mem1 = 0;
 	tsk->acct_vm_mem1 = 0;
 }
+
+EXPORT_SYMBOL(acct_clear_integrals);
 #endif

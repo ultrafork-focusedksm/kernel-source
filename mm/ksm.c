@@ -1114,7 +1114,7 @@ out:
  *
  * Returns 0 on success, -EFAULT on failure.
  */
-static int replace_page(struct vm_area_struct *vma, struct page *page,
+int replace_page(struct vm_area_struct *vma, struct page *page,
 			struct page *kpage, pte_t orig_pte)
 {
 	struct mm_struct *mm = vma->vm_mm;
@@ -1186,6 +1186,8 @@ out_mn:
 out:
 	return err;
 }
+
+EXPORT_SYMBOL(replace_page);
 
 /*
  * try_to_merge_one_page - take two pages and merge them into one

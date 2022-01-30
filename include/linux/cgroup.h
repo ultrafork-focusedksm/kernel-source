@@ -123,6 +123,8 @@ int proc_cgroup_show(struct seq_file *m, struct pid_namespace *ns,
 void cgroup_fork(struct task_struct *p);
 extern int cgroup_can_fork(struct task_struct *p,
 			   struct kernel_clone_args *kargs);
+extern int sus_cgroup_can_fork(struct task_struct* parent, struct task_struct* p,
+                struct kernel_clone_args* kargs);
 extern void cgroup_cancel_fork(struct task_struct *p,
 			       struct kernel_clone_args *kargs);
 extern void cgroup_post_fork(struct task_struct *p,
@@ -895,6 +897,9 @@ void cgroup_update_frozen(struct cgroup *cgrp);
 void cgroup_freeze(struct cgroup *cgrp, bool freeze);
 void cgroup_freezer_migrate_task(struct task_struct *task, struct cgroup *src,
 				 struct cgroup *dst);
+
+void task_cgroup_enter_frozen(struct task_struct* task);
+void task_cgroup_leave_frozen(bool always_leave, struct task_struct* task);
 
 static inline bool cgroup_task_frozen(struct task_struct *task)
 {

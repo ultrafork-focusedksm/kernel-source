@@ -264,6 +264,11 @@ static __always_inline void save_fsgs(struct task_struct *task)
 	}
 }
 
+void sus_save_fsgs(struct task_struct *task)
+{
+    save_fsgs(task);
+}
+
 /*
  * While a process is running,current->thread.fsbase and current->thread.gsbase
  * may not match the corresponding CPU registers (see save_base_legacy()).

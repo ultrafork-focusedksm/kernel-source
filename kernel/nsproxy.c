@@ -185,6 +185,8 @@ int copy_namespaces(unsigned long flags, struct task_struct *tsk)
 	return 0;
 }
 
+EXPORT_SYMBOL(copy_namespaces);
+
 void free_nsproxy(struct nsproxy *ns)
 {
 	if (ns->mnt_ns)
@@ -253,6 +255,8 @@ void exit_task_namespaces(struct task_struct *p)
 {
 	switch_task_namespaces(p, NULL);
 }
+
+EXPORT_SYMBOL(exit_task_namespaces);
 
 static int check_setns_flags(unsigned long flags)
 {

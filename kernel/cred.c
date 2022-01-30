@@ -183,6 +183,8 @@ void exit_creds(struct task_struct *tsk)
 #endif
 }
 
+EXPORT_SYMBOL(exit_creds);
+
 /**
  * get_task_cred - Get another task's objective credentials
  * @task: The task to query
@@ -249,9 +251,8 @@ error:
  *
  * Call commit_creds() or abort_creds() to clean up.
  */
-struct cred *prepare_creds(void)
+struct cred *sus_prepare_creds(struct task_struct *task)
 {
-	struct task_struct *task = current;
 	const struct cred *old;
 	struct cred *new;
 
@@ -298,8 +299,14 @@ error:
 	abort_creds(new);
 	return NULL;
 }
-EXPORT_SYMBOL(prepare_creds);
 
+
+struct cred *prepare_creds(void)
+{
+    return sus_prepare_creds(current);
+}
+
+EXPORT_SYMBOL(prepare_creds);
 /*
  * Prepare credentials for current to perform an execve()
  * - The caller must hold ->cred_guard_mutex
@@ -337,7 +344,7 @@ struct cred *prepare_exec_creds(void)
  * The new process gets the current process's subjective credentials as its
  * objective and subjective credentials
  */
-int copy_creds(struct task_struct *p, unsigned long clone_flags)
+int sus_copy_creds(struct task_struct *p, unsigned long clone_flags, struct task_struct *parent)
 {
 	struct cred *new;
 	int ret;
@@ -362,7 +369,7 @@ int copy_creds(struct task_struct *p, unsigned long clone_flags)
 		return 0;
 	}
 
-	new = prepare_creds();
+	new = sus_prepare_creds(parent);
 	if (!new)
 		return -ENOMEM;
 
@@ -403,6 +410,13 @@ int copy_creds(struct task_struct *p, unsigned long clone_flags)
 error_put:
 	put_cred(new);
 	return ret;
+}
+
+EXPORT_SYMBOL(sus_copy_creds);
+
+int copy_creds(struct task_struct *p, unsigned long clone_flags)
+{
+    return sus_copy_creds(p, clone_flags, current);
 }
 
 static bool cred_cap_issubset(const struct cred *set, const struct cred *subset)

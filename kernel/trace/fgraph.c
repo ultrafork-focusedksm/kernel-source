@@ -540,6 +540,8 @@ void ftrace_graph_init_task(struct task_struct *t)
 	}
 }
 
+EXPORT_SYMBOL(ftrace_graph_init_task);
+
 void ftrace_graph_exit_task(struct task_struct *t)
 {
 	struct ftrace_ret_stack	*ret_stack = t->ret_stack;

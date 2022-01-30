@@ -96,6 +96,8 @@ void proc_fork_connector(struct task_struct *task)
 	send_msg(msg);
 }
 
+EXPORT_SYMBOL(proc_fork_connector);
+
 void proc_exec_connector(struct task_struct *task)
 {
 	struct cn_msg *msg;

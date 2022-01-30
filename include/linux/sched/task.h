@@ -36,6 +36,45 @@ struct kernel_clone_args {
 	struct css_set *cset;
 };
 
+void sus_copy_oom_score_adj(u64 clone_flags, struct task_struct *tsk, struct task_struct *parent);
+void sus_copy_seccomp(struct task_struct *p, struct task_struct *orig);
+int sus_copy_mm(unsigned long clone_flags, struct task_struct *tsk, struct task_struct *parent);
+int sus_copy_io(unsigned long clone_flags, struct task_struct *tsk);
+int sus_copy_sighand(unsigned long clone_flags, struct task_struct *tsk, struct task_struct *parent);
+int sus_copy_signal(unsigned long clone_flags, struct task_struct *tsk, struct task_struct *target);
+int sus_copy_fs(unsigned long clone_flags, struct task_struct *tsk, struct task_struct *parent);
+int sus_copy_files(unsigned long clone_flags, struct task_struct *tsk, struct task_struct *parent);
+int sus_copy_semundo(unsigned long clone_flags, struct task_struct *tsk, struct task_struct *parent);
+struct task_struct *dup_task_struct(struct task_struct *orig, int node);
+void increment_process_count(void);
+void fork_write_lock_irq(void);
+void fork_write_unlock_irq(void);
+struct file *fork_get_pidfile(struct pid *pid);
+void check_mm(struct mm_struct *mm);
+struct mm_struct* allocate_mm(void);
+void free_mm(struct mm_struct *mm);
+void signal_cache_free(struct signal_struct* sig);
+void mm_free_pgd(struct mm_struct* mm);
+void sus_destroy_context(struct mm_struct* mm);
+void sus_mmu_notifier_subscriptions_destroy(struct mm_struct *mm);
+void sus_taskstats_tgid_free(struct signal_struct* sig);
+int sus_sched_fork(unsigned long clone_flags, struct task_struct *p,
+        struct task_struct *parent);
+int sus_copy_creds(struct task_struct *p, unsigned long clone_flags, struct task_struct *parent);
+void sus_uprobe_copy_process(struct task_struct *t, unsigned long flags,
+        struct task_struct *parent);
+void sus_recalc_sigpending(struct task_struct* t);
+void sus_task_join_group_stop(struct task_struct *task, struct task_struct *parent);
+
+extern int sus_copy_thread(unsigned long clone_flags, unsigned long sp,
+        unsigned long arg, struct task_struct *p, struct task_struct *parent,
+        unsigned long tls);
+
+void sus_save_fsgs(struct task_struct *task);
+
+struct task_struct *copy_process(struct pid *pid, int trace, int node,
+                                struct kernel_clone_args *args);
+
 /*
  * This serializes "schedule()" and also protects
  * the run-queue from deletions/modifications (but

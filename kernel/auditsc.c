@@ -1073,6 +1073,8 @@ int audit_alloc(struct task_struct *tsk)
 	return 0;
 }
 
+EXPORT_SYMBOL(audit_alloc);
+
 /**
  * audit_alloc_kernel - allocate an audit_context for a kernel task
  * @tsk: the kernel task
@@ -1881,6 +1883,8 @@ void __audit_free(struct task_struct *tsk)
 	audit_set_context(tsk, NULL);
 	audit_free_context(context);
 }
+
+EXPORT_SYMBOL(__audit_free);
 
 /**
  * audit_return_fixup - fixup the return codes in the audit_context

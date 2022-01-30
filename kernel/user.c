@@ -102,6 +102,8 @@ struct user_struct root_user = {
 	.ratelimit	= RATELIMIT_STATE_INIT(root_user.ratelimit, 0, 0),
 };
 
+EXPORT_SYMBOL(root_user);
+
 /*
  * These routines must be called with the uidhash spinlock held!
  */

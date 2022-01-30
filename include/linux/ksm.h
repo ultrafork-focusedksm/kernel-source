@@ -37,6 +37,9 @@ static inline void ksm_exit(struct mm_struct *mm)
 		__ksm_exit(mm);
 }
 
+int replace_page(struct vm_area_struct* vma, struct page* page,
+        struct page* kpage, pte_t orig_pte);
+
 /*
  * When do_swap_page() first faults in from swap what used to be a KSM page,
  * no problem, it will be assigned to this vma's anon_vma; but thereafter,

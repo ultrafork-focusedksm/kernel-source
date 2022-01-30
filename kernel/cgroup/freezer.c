@@ -119,6 +119,25 @@ void cgroup_enter_frozen(void)
 	spin_unlock_irq(&css_set_lock);
 }
 
+void task_cgroup_enter_frozen(struct task_struct* task)
+{
+    struct cgroup *cgrp;
+
+    if (task->frozen)
+    {
+        return;
+    }
+
+    spin_lock_irq(&css_set_lock);
+    task->frozen = true;
+    cgrp = task_dfl_cgroup(task);
+    cgroup_inc_frozen_cnt(cgrp);
+    cgroup_update_frozen(cgrp);
+    spin_unlock_irq(&css_set_lock);
+}
+
+EXPORT_SYMBOL(task_cgroup_enter_frozen);
+
 /*
  * Conditionally leave frozen/stopped state. Update cgroup's counters,
  * and revisit the state of the cgroup, if necessary.
@@ -147,6 +166,31 @@ void cgroup_leave_frozen(bool always_leave)
 	}
 	spin_unlock_irq(&css_set_lock);
 }
+
+void task_cgroup_leave_frozen(bool always_leave, struct task_struct* task)
+{
+    struct cgroup* cgrp;
+
+    spin_lock_irq(&css_set_lock);
+    cgrp = task_dfl_cgroup(task);
+    if (always_leave || !test_bit(CGRP_FREEZE, &cgrp->flags))
+    {
+        cgroup_dec_frozen_cnt(cgrp);
+        cgroup_update_frozen(cgrp);
+        WARN_ON_ONCE(!task->frozen);
+        task->frozen = false;
+    }
+    else if (!(task->jobctl & JOBCTL_TRAP_FREEZE))
+    {
+        spin_lock(&task->sighand->siglock);
+        task->jobctl |= JOBCTL_TRAP_FREEZE;
+        sus_set_thread_flag(TIF_SIGPENDING, task);
+        spin_unlock(&task->sighand->siglock);
+    }
+    spin_unlock_irq(&css_set_lock);
+}
+
+EXPORT_SYMBOL(task_cgroup_leave_frozen);
 
 /*
  * Freeze or unfreeze the task by setting or clearing the JOBCTL_TRAP_FREEZE

@@ -1667,6 +1667,8 @@ int security_task_alloc(struct task_struct *task, unsigned long clone_flags)
 	return rc;
 }
 
+EXPORT_SYMBOL(security_task_alloc);
+
 void security_task_free(struct task_struct *task)
 {
 	call_void_hook(task_free, task);
@@ -1674,6 +1676,8 @@ void security_task_free(struct task_struct *task)
 	kfree(task->security);
 	task->security = NULL;
 }
+
+EXPORT_SYMBOL(security_task_free);
 
 int security_cred_alloc_blank(struct cred *cred, gfp_t gfp)
 {

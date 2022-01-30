@@ -465,6 +465,8 @@ void exit_files(struct task_struct *tsk)
 	}
 }
 
+EXPORT_SYMBOL(exit_files);
+
 struct files_struct init_files = {
 	.count		= ATOMIC_INIT(1),
 	.fdt		= &init_files.fdtab,
